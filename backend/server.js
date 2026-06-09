@@ -10,7 +10,15 @@ import { v4 as uuid } from 'uuid';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:3000'], credentials: true }));
+app.use(cors({
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://single-vault-jxb2.vercel.app',
+    process.env.CORS_ORIGIN
+  ].filter(Boolean),
+  credentials: true
+}));
 app.use(express.json());
 
 app.use('/api/auth',       authRoutes);
