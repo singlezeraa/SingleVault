@@ -2,7 +2,7 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { v4 as uuid } from 'uuid';
-import { getDb, persist } from '../db.js';
+import { getDb } from '../db.js';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'singlevault_secret';
@@ -12,11 +12,9 @@ router.post('/login', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Preencha usuário e senha.' });
   const db = await getDb();
-  const rows = db.exec(`SELECT * FROM users WHERE username = '${username.replace(/'/g,"''")}'`);
-  if (!rows.length || !rows[0].values.length) return res.status(401).json({ error: 'Usuário ou senha incorretos.' });
-  const cols = rows[0].columns;
-  const vals = rows[0].values[0];
-  const user = Object.fromEntries(cols.map((c, i) => [c, vals[i]]));
+  const result = await db.query(`SELECT * FROM users WHERE username = $1`, [username]);
+  if (!result.rows.length) return res.status(401).json({ error: 'Usuário ou senha incorretos.' });
+  const user = result.rows[0];
   if (user.status === 'inativo') return res.status(403).json({ error: 'Esta conta está desativada. Contate o administrador.' });
   const valid = await bcrypt.compare(password, user.password);
   if (!valid) return res.status(401).json({ error: 'Usuário ou senha incorretos.' });
@@ -30,12 +28,14 @@ router.post('/register', async (req, res) => {
   if (!username || !name || !password) return res.status(400).json({ error: 'Preencha todos os campos.' });
   if (password.length < 6) return res.status(400).json({ error: 'A senha deve ter pelo menos 6 caracteres.' });
   const db = await getDb();
-  const exists = db.exec(`SELECT id FROM users WHERE username = '${username.replace(/'/g,"''")}'`);
-  if (exists.length && exists[0].values.length) return res.status(409).json({ error: 'Este usuário já existe.' });
+  const exists = await db.query(`SELECT id FROM users WHERE username = $1`, [username]);
+  if (exists.rows.length) return res.status(409).json({ error: 'Este usuário já existe.' });
   const hashed = await bcrypt.hash(password, 10);
   const id = uuid();
-  db.run(`INSERT INTO users VALUES ('${id}','${username.replace(/'/g,"''")}','${name.replace(/'/g,"''")}','${hashed}','usuario','ativo','${new Date().toISOString()}')`);
-  persist();
+  await db.query(
+    `INSERT INTO users VALUES ($1,$2,$3,$4,'usuario','ativo',$5)`,
+    [id, username, name, hashed, new Date().toISOString()]
+  );
   const token = jwt.sign({ id, username, name, role: 'usuario' }, JWT_SECRET, { expiresIn: '7d' });
   res.status(201).json({ token, user: { id, username, name, role: 'usuario' } });
 });
