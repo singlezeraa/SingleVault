@@ -6,19 +6,26 @@ let pool = null;
 
 export async function getDb() {
   if (pool) return pool;
+  
   pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: process.env.DATABASE_URL?.includes('railway.internal')
-      ? false
-      : { rejectUnauthorized: false }
+    ssl: { rejectUnauthorized: false }
   });
+
+  // Testa a conexão antes de continuar
+  try {
+    await pool.query('SELECT 1');
+    console.log('✅ Conectado ao PostgreSQL com sucesso!');
+  } catch (err) {
+    console.error('❌ Erro ao conectar ao banco:', err.message);
+    throw err;
+  }
+
   await createTables(pool);
   return pool;
 }
 
-export async function persist() {
-  // No PostgreSQL não precisa persistir manualmente
-}
+export async function persist() {}
 
 async function createTables(pool) {
   await pool.query(`
@@ -81,4 +88,5 @@ async function createTables(pool) {
       "createdAt" TEXT NOT NULL
     );
   `);
+  console.log('✅ Tabelas verificadas/criadas com sucesso!');
 }
