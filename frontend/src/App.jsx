@@ -25,8 +25,10 @@ function AppInner() {
   const [activeMonth, setActiveMonth] = useState(curMonthKey());
   const [months, setMonths] = useState([curMonthKey()]);
 
-  useEffect(() => {
+useEffect(() => {
     if (!user) return;
+    // Aplica fixos e parcelados no mês atual ao fazer login
+    api.post(`/financeiro/auto-apply/${curMonthKey()}`).catch(() => {});
     api.get('/financeiro/receitas').then(r => {
       const keys = new Set([curMonthKey()]);
       r.data.forEach(x => keys.add(x.data.substring(0, 7)));
