@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import { getDb, persist } from './src/db.js';
+import { getDb } from './src/db.js';
 import authRoutes from './src/routes/auth.js';
 import usersRoutes from './src/routes/users.js';
 import financeiroRoutes from './src/routes/financeiro.js';
@@ -19,28 +19,33 @@ app.use(cors({
   ].filter(Boolean),
   credentials: true
 }));
+
 app.use(express.json());
 
 app.use('/api/auth',       authRoutes);
 app.use('/api/users',      usersRoutes);
 app.use('/api/financeiro', financeiroRoutes);
 
-app.get('/api/health', (_, res) => res.json({ status: 'ok', app: 'SingleVault API' }));
+app.get('/api/health', (_, res) => res.json({ status: 'ok', app: 'SingleVault API v2 - PostgreSQL' }));
 
-// Inicializa admin padrão se não existir
 async function seedAdmin() {
   const db = await getDb();
-  const exists = db.exec(`SELECT id FROM users WHERE username='admin'`);
-  if (!exists.length || !exists[0].values.length) {
+  const exists = await db.query(`SELECT id FROM users WHERE username = $1`, ['admin']);
+  if (!exists.rows.length) {
     const hashed = await bcrypt.hash('Xk9mR4bW2nL7qT5j', 10);
-    db.run(`INSERT INTO users VALUES ('${uuid()}','admin','Administrador','${hashed}','admin','ativo','${new Date().toISOString()}')`);
-    persist(db);
+    await db.query(
+      `INSERT INTO users VALUES ($1,$2,$3,$4,'admin','ativo',$5)`,
+      [uuid(), 'admin', 'Administrador', hashed, new Date().toISOString()]
+    );
     console.log('✅ Admin criado automaticamente.');
   }
 }
 
 seedAdmin().then(() => {
   app.listen(PORT, () => {
-    console.log(`🔐 SingleVault API rodando em http://localhost:${PORT}`);
+    console.log(`🔐 SingleVault API (PostgreSQL) rodando em http://localhost:${PORT}`);
   });
+}).catch(err => {
+  console.error('❌ Erro ao conectar ao banco:', err.message);
+  process.exit(1);
 });
