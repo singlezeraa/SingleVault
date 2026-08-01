@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react';
-import api from '../api/index.js';
+import { getReceitas, addReceita, deleteReceita } from '../data.js';
+import { useAuth } from '../context/AuthContext.jsx';
 import { fmt, fmtDate, todayStr, REC_TYPES } from '../utils.js';
-import { ConfirmModal } from '../components/UI.jsx';
-import { useToast } from '../components/UI.jsx';
+import { ConfirmModal, useToast } from '../components/UI.jsx';
 
 export default function Receitas({ activeMonth }) {
+  const { user } = useAuth();
   const toast = useToast();
   const [list, setList] = useState([]);
   const [form, setForm] = useState({ descricao: '', valor: '', data: todayStr(), tipo: 'salario', obs: '' });
   const [loading, setLoading] = useState(false);
   const [del, setDel] = useState(null);
 
-  const load = () => api.get(`/financeiro/receitas?monthKey=${activeMonth}`).then(r => setList(r.data));
+  const load = () => getReceitas(activeMonth).then(setList);
   useEffect(() => { load(); }, [activeMonth]);
 
   const submit = async e => {
@@ -19,7 +20,7 @@ export default function Receitas({ activeMonth }) {
     if (!form.descricao || !form.valor) { toast('Preencha todos os campos.', 'error'); return; }
     setLoading(true);
     try {
-      await api.post('/financeiro/receitas', { ...form, valor: parseFloat(form.valor) });
+      await addReceita(user.id, { ...form, valor: parseFloat(form.valor) });
       setForm({ descricao: '', valor: '', data: todayStr(), tipo: 'salario', obs: '' });
       await load();
       toast(`Receita de ${fmt(parseFloat(form.valor))} registrada!`);
@@ -28,7 +29,7 @@ export default function Receitas({ activeMonth }) {
   };
 
   const doDelete = async () => {
-    await api.delete(`/financeiro/receitas/${del}`);
+    await deleteReceita(del);
     setDel(null); await load(); toast('Receita excluída.');
   };
 

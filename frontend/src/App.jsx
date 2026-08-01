@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';
-import { ToastProvider, useToast } from './components/UI.jsx';
+import { ToastProvider } from './components/UI.jsx';
+import { Spinner } from './components/UI.jsx';
 import Sidebar from './components/Sidebar.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
@@ -8,7 +9,7 @@ import Dashboard from './pages/Dashboard.jsx';
 import Receitas from './pages/Receitas.jsx';
 import Gastos from './pages/Gastos.jsx';
 import { Fixos, Parcelados, Historico, Balanco, Usuarios } from './pages/OtherPages.jsx';
-import api from './api/index.js';
+import { autoApply, getReceitas, getGastos } from './data.js';
 import { curMonthKey, monthLabel, monthKey } from './utils.js';
 
 const PAGE_NAMES = {
@@ -18,8 +19,7 @@ const PAGE_NAMES = {
 };
 
 function AppInner() {
-  const { user, isAdmin } = useAuth();
-  const toast = useToast();
+  const { user, isAdmin, loading } = useAuth();
   const [authView, setAuthView] = useState('login');
   const [page, setPage] = useState('dashboard');
   const [activeMonth, setActiveMonth] = useState(curMonthKey());
@@ -27,33 +27,35 @@ function AppInner() {
 
   useEffect(() => {
     if (!user) return;
-    api.get('/financeiro/receitas').then(r => {
+    // Aplica fixos e parcelados no mês atual ao logar
+    autoApply(user.id, curMonthKey()).catch(() => {});
+
+    // Monta lista de meses com dados
+    Promise.all([getReceitas(), getGastos()]).then(([rec, gas]) => {
       const keys = new Set([curMonthKey()]);
-      r.data.forEach(x => keys.add(x.data.substring(0, 7)));
-      api.get('/financeiro/gastos').then(g => {
-        g.data.forEach(x => keys.add(x.data.substring(0, 7)));
-        const sorted = [...keys].sort().reverse();
-        // Add 2 future months
-        const d = new Date();
-        for (let i = 1; i <= 2; i++) {
-          d.setMonth(d.getMonth() + 1);
-          const k = monthKey(d.getFullYear(), d.getMonth() + 1);
-          if (!sorted.includes(k)) sorted.unshift(k);
-        }
-        setMonths(sorted.sort().reverse());
-      });
+      rec.forEach(x => keys.add(x.data.substring(0, 7)));
+      gas.forEach(x => keys.add(x.data.substring(0, 7)));
+      const sorted = [...keys];
+      const d = new Date();
+      for (let i = 1; i <= 2; i++) {
+        d.setMonth(d.getMonth() + 1);
+        keys.add(monthKey(d.getFullYear(), d.getMonth() + 1));
+      }
+      setMonths([...keys].sort().reverse());
     });
   }, [user, page]);
 
   const handleMonthChange = async (mk) => {
     setActiveMonth(mk);
-    try { await api.post(`/financeiro/auto-apply/${mk}`); } catch {}
+    if (user) await autoApply(user.id, mk).catch(() => {});
   };
 
   const navigate = (p) => {
     if (p === 'usuarios' && !isAdmin()) return;
     setPage(p);
   };
+
+  if (loading) return <div className="auth-screen"><Spinner /></div>;
 
   if (!user) {
     return authView === 'login'
@@ -84,7 +86,7 @@ function AppInner() {
         months={months}
         onMonthChange={handleMonthChange}
       />
-      <main className="main">
+ <main className="main">
         <header className="topbar">
           <div className="topbar-left">
             <h1>{PAGE_NAMES[page] || page}</h1>

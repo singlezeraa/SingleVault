@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
-import api from '../api/index.js';
+import { getGastos, addGasto, deleteGasto } from '../data.js';
+import { useAuth } from '../context/AuthContext.jsx';
 import { fmt, fmtDate, todayStr, CATS } from '../utils.js';
 import { ConfirmModal, useToast } from '../components/UI.jsx';
 
 export default function Gastos({ activeMonth }) {
+  const { user } = useAuth();
   const toast = useToast();
   const [list, setList] = useState([]);
   const [filtro, setFiltro] = useState('');
@@ -11,7 +13,7 @@ export default function Gastos({ activeMonth }) {
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ descricao:'', valor:'', data:todayStr(), categoria:'alimentacao', tipo:'variavel', pagamento:'debito', obs:'' });
 
-  const load = () => api.get(`/financeiro/gastos?monthKey=${activeMonth}`).then(r => setList(r.data));
+  const load = () => getGastos(activeMonth).then(setList);
   useEffect(() => { load(); }, [activeMonth]);
 
   const submit = async e => {
@@ -19,7 +21,7 @@ export default function Gastos({ activeMonth }) {
     if (!form.descricao || !form.valor) { toast('Preencha todos os campos.', 'error'); return; }
     setLoading(true);
     try {
-      await api.post('/financeiro/gastos', { ...form, valor: parseFloat(form.valor) });
+      await addGasto(user.id, { ...form, valor: parseFloat(form.valor) });
       setForm({ descricao:'', valor:'', data:todayStr(), categoria:'alimentacao', tipo:'variavel', pagamento:'debito', obs:'' });
       await load(); toast(`Gasto de ${fmt(parseFloat(form.valor))} lançado!`);
     } catch { toast('Erro ao lançar gasto.', 'error'); }
@@ -27,8 +29,8 @@ export default function Gastos({ activeMonth }) {
   };
 
   const doDelete = async () => {
-    try { await api.delete(`/financeiro/gastos/${del}`); setDel(null); await load(); toast('Gasto excluído.'); }
-    catch (err) { toast(err.response?.data?.error || 'Erro ao excluir.', 'error'); setDel(null); }
+    try { await deleteGasto(del); setDel(null); await load(); toast('Gasto excluído.'); }
+    catch (err) { toast(err.message || 'Erro ao excluir.', 'error'); setDel(null); }
   };
 
   const f = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
@@ -85,7 +87,7 @@ export default function Gastos({ activeMonth }) {
                     <div className="tx-meta">{fmtDate(g.data)} · {c.label} · {g.pagamento} <span className={`badge ${bc}`} style={{marginLeft:6}}>{g.tipo}</span></div>
                   </div>
                   <div className={`tx-amount ${ic}`}>- {fmt(g.valor)}</div>
-                  {!g.fixoId && !g.parceladoId
+                  {!g.fixo_id && !g.parcelado_id
                     ? <button className="tx-delete" onClick={() => setDel(g.id)}>✕</button>
                     : <span style={{width:28}} />
                   }

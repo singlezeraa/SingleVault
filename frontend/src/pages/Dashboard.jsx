@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import api from '../api/index.js';
+import { getReceitas, getGastos, getFixos } from '../data.js';
 import { fmt, fmtDate, CATS, REC_TYPES } from '../utils.js';
 import { Spinner } from '../components/UI.jsx';
 
@@ -10,12 +10,12 @@ export default function Dashboard({ activeMonth }) {
   useEffect(() => {
     if (!activeMonth) return;
     Promise.all([
-      api.get(`/financeiro/receitas?monthKey=${activeMonth}`),
-      api.get(`/financeiro/gastos?monthKey=${activeMonth}`),
-      api.get('/financeiro/fixos'),
-    ]).then(([r, g, f]) => {
-      setData({ receitas: r.data, gastos: g.data });
-      setFixos(f.data);
+      getReceitas(activeMonth),
+      getGastos(activeMonth),
+      getFixos(),
+    ]).then(([rec, gas, fix]) => {
+      setData({ receitas: rec, gastos: gas });
+      setFixos(fix);
     });
   }, [activeMonth]);
 

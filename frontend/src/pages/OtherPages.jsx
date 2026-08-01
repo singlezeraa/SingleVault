@@ -1,17 +1,25 @@
 import { useEffect, useState } from 'react';
-import api from '../api/index.js';
+import {
+  getFixos, addFixo, deleteFixo, applyFixosToMonth,
+  getParcelados, addParcelado, deleteParcelado,
+  getReceitas, getGastos,
+  getUsuarios, updateUsuario, deleteUsuario
+} from '../data.js';
+import { supabase } from '../supabase.js';
+import { useAuth } from '../context/AuthContext.jsx';
 import { fmt, fmtDate, todayStr, CATS, curMonthKey, addMonths, monthLabel } from '../utils.js';
 import { ConfirmModal, useToast } from '../components/UI.jsx';
 
 // ─── FIXOS ───────────────────────────────────────────────────
 export function Fixos({ activeMonth }) {
+  const { user } = useAuth();
   const toast = useToast();
   const [list, setList] = useState([]);
   const [form, setForm] = useState({ descricao:'', valor:'', categoria:'moradia', pagamento:'debito', dia:'' });
   const [del, setDel] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const load = () => api.get('/financeiro/fixos').then(r => setList(r.data));
+  const load = () => getFixos().then(setList);
   useEffect(() => { load(); }, []);
 
   const submit = async e => {
@@ -19,18 +27,18 @@ export function Fixos({ activeMonth }) {
     if (!form.descricao || !form.valor || !form.dia) { toast('Preencha todos os campos.', 'error'); return; }
     setLoading(true);
     try {
-      await api.post('/financeiro/fixos', { ...form, valor: parseFloat(form.valor), dia: parseInt(form.dia) });
+      await addFixo(user.id, { ...form, valor: parseFloat(form.valor), dia: parseInt(form.dia) });
       setForm({ descricao:'', valor:'', categoria:'moradia', pagamento:'debito', dia:'' });
       await load(); toast('Gasto fixo cadastrado!');
     } catch { toast('Erro ao cadastrar.', 'error'); } finally { setLoading(false); }
   };
 
   const doDelete = async () => {
-    await api.delete(`/financeiro/fixos/${del}`); setDel(null); await load(); toast('Gasto fixo excluído.');
+    await deleteFixo(del, user.id); setDel(null); await load(); toast('Gasto fixo excluído.');
   };
 
   const reapply = async () => {
-    await api.post(`/financeiro/fixos/apply/${activeMonth}`);
+    await applyFixosToMonth(user.id, activeMonth);
     toast('Fixos aplicados no mês atual!');
   };
 
@@ -95,6 +103,7 @@ export function Fixos({ activeMonth }) {
 
 // ─── PARCELADOS ──────────────────────────────────────────────
 export function Parcelados({ activeMonth }) {
+  const { user } = useAuth();
   const toast = useToast();
   const [list, setList] = useState([]);
   const [gastos, setGastos] = useState([]);
@@ -103,8 +112,8 @@ export function Parcelados({ activeMonth }) {
   const [form, setForm] = useState({ descricao:'', valorTotal:'', parcelas:'2', data:todayStr(), categoria:'tecnologia', pagamento:'credito' });
 
   const load = async () => {
-    const [p, g] = await Promise.all([api.get('/financeiro/parcelados'), api.get(`/financeiro/gastos?monthKey=${activeMonth}`)]);
-    setList(p.data); setGastos(g.data);
+    const [p, g] = await Promise.all([getParcelados(), getGastos(activeMonth)]);
+    setList(p); setGastos(g);
   };
   useEffect(() => { load(); }, [activeMonth]);
 
@@ -117,7 +126,7 @@ export function Parcelados({ activeMonth }) {
     setLoading(true);
     const [y, mo, dia] = form.data.split('-');
     try {
-      await api.post('/financeiro/parcelados', {
+      await addParcelado(user.id, {
         descricao: form.descricao, valorTotal: parseFloat(form.valorTotal),
         parcelas: parseInt(form.parcelas), mesInicio: `${y}-${mo}`, dia: parseInt(dia),
         categoria: form.categoria, pagamento: form.pagamento
@@ -128,10 +137,10 @@ export function Parcelados({ activeMonth }) {
   };
 
   const doDelete = async () => {
-    await api.delete(`/financeiro/parcelados/${del}`); setDel(null); await load(); toast('Parcelamento excluído.');
+    await deleteParcelado(del, user.id); setDel(null); await load(); toast('Parcelamento excluído.');
   };
 
-  const calcPago = (p) => { let c=0; for(let i=0;i<p.parcelas;i++){if(addMonths(p.mesInicio,i)<=now) c++;} return c; };
+  const calcPago = (p) => { let c=0; for(let i=0;i<p.parcelas;i++){if(addMonths(p.mes_inicio,i)<=now) c++;} return c; };
   const f = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
   const vt = parseFloat(form.valorTotal) || 0;
   const np = parseInt(form.parcelas) || 1;
@@ -174,15 +183,15 @@ export function Parcelados({ activeMonth }) {
           <div className="tx-list">
             {list.map(p => {
               const c = CATS[p.categoria] || CATS.outros;
-              const mesF = addMonths(p.mesInicio, p.parcelas - 1);
+              const mesF = addMonths(p.mes_inicio, p.parcelas - 1);
               const pago = calcPago(p);
-              const ativa = now >= p.mesInicio && now <= mesF;
+              const ativa = now >= p.mes_inicio && now <= mesF;
               return (
                 <div key={p.id} className="tx-item">
                   <div className="tx-icon parcela">{c.emoji}</div>
                   <div className="tx-info">
                     <div className="tx-desc">{p.descricao}</div>
-                    <div className="tx-meta">{c.label} · {p.pagamento} · {fmt(p.valorParcela)}/mês · Até {monthLabel(mesF)}</div>
+                    <div className="tx-meta">{c.label} · {p.pagamento} · {fmt(p.valor_parcela)}/mês · Até {monthLabel(mesF)}</div>
                   </div>
                   <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:4,flexShrink:0}}>
                     <span className="parc-progress">{pago}/{p.parcelas}</span>
@@ -206,13 +215,10 @@ export function Historico() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
-      api.get('/financeiro/receitas'),
-      api.get('/financeiro/gastos'),
-    ]).then(([r, g]) => {
+    Promise.all([getReceitas(), getGastos()]).then(([rec, gas]) => {
       const m = {};
-      r.data.forEach(x => { const k = x.data.substring(0,7); if(!m[k]) m[k]={receitas:[],gastos:[]}; m[k].receitas.push(x); });
-      g.data.forEach(x => { const k = x.data.substring(0,7); if(!m[k]) m[k]={receitas:[],gastos:[]}; m[k].gastos.push(x); });
+      rec.forEach(x => { const k = x.data.substring(0,7); if(!m[k]) m[k]={receitas:[],gastos:[]}; m[k].receitas.push(x); });
+      gas.forEach(x => { const k = x.data.substring(0,7); if(!m[k]) m[k]={receitas:[],gastos:[]}; m[k].gastos.push(x); });
       setMonths(m);
     }).finally(() => setLoading(false));
   }, []);
@@ -268,10 +274,7 @@ export function Balanco({ activeMonth }) {
 
   useEffect(() => {
     if (!activeMonth) return;
-    Promise.all([
-      api.get(`/financeiro/receitas?monthKey=${activeMonth}`),
-      api.get(`/financeiro/gastos?monthKey=${activeMonth}`),
-    ]).then(([r, g]) => setData({ receitas: r.data, gastos: g.data }));
+    Promise.all([getReceitas(activeMonth), getGastos(activeMonth)]).then(([rec, gas]) => setData({ receitas: rec, gastos: gas }));
   }, [activeMonth]);
 
   if (!data) return <p className="empty-state" style={{padding:40}}>Carregando...</p>;
@@ -338,28 +341,44 @@ export function Usuarios({ currentUserId }) {
   const [form, setForm] = useState({ nome:'', username:'', password:'', role:'usuario' });
   const [loading, setLoading] = useState(false);
 
-  const load = () => api.get('/users').then(r => setList(r.data));
+  const load = () => getUsuarios().then(setList);
   useEffect(() => { load(); }, []);
 
   const submit = async e => {
     e.preventDefault();
     if (!form.nome||!form.username||!form.password){toast('Preencha todos os campos.','error');return;}
+    if (form.password.length < 6){toast('Senha deve ter ao menos 6 caracteres.','error');return;}
     setLoading(true);
     try {
-      await api.post('/users',{name:form.nome,username:form.username,password:form.password,role:form.role});
+      const email = `${form.username}@singlevault.local`;
+      const { error } = await supabase.auth.signUp({
+        email, password: form.password,
+        options: { data: { username: form.username, name: form.nome } }
+      });
+      if (error) throw error;
+      // Atualiza o cargo se for admin (o gatilho cria como usuario por padrão)
+      if (form.role === 'admin') {
+        await new Promise(r => setTimeout(r, 500)); // aguarda o gatilho
+        const { data: novo } = await supabase.from('perfis').select('id').eq('username', form.username).single();
+        if (novo) await updateUsuario(novo.id, { role: 'admin' });
+      }
       setForm({nome:'',username:'',password:'',role:'usuario'}); await load(); toast(`Usuário "${form.username}" criado!`);
-    } catch(err){toast(err.response?.data?.error||'Erro ao criar.','error');}
+    } catch(err){toast(err.message||'Erro ao criar.','error');}
     finally{setLoading(false);}
   };
 
   const doDelete = async () => {
-    await api.delete(`/users/${del}`); setDel(null); await load(); toast('Usuário excluído.');
+    await deleteUsuario(del); setDel(null); await load(); toast('Usuário excluído.');
   };
 
-  const openEdit = u => { setEditUser(u.id); setEditForm({name:u.name,password:'',role:u.role,status:u.status}); };
+  const openEdit = u => { setEditUser(u.id); setEditForm({name:u.name,role:u.role,status:u.status}); };
   const saveEdit = async () => {
-    try { await api.put(`/users/${editUser}`,editForm); setEditUser(null); await load(); toast('Usuário atualizado!'); }
-    catch(err){toast(err.response?.data?.error||'Erro.','error');}
+    try {
+      const updates = { name: editForm.name };
+      if (editUser !== currentUserId) { updates.role = editForm.role; updates.status = editForm.status; }
+      await updateUsuario(editUser, updates);
+      setEditUser(null); await load(); toast('Usuário atualizado!');
+    } catch(err){toast(err.message||'Erro.','error');}
   };
 
   const f = k => e => setForm(p=>({...p,[k]:e.target.value}));
@@ -374,7 +393,6 @@ export function Usuarios({ currentUserId }) {
           <div className="modal" style={{minWidth:360}}>
             <h3>Editar Usuário</h3>
             <div className="form-group" style={{marginTop:16}}><label>Nome completo</label><input value={editForm.name} onChange={ef('name')} /></div>
-            <div className="form-group" style={{marginTop:12}}><label>Nova senha <span style={{color:'var(--text3)',fontWeight:400}}>(deixe em branco para não alterar)</span></label><input type="password" value={editForm.password} onChange={ef('password')} placeholder="Nova senha..." /></div>
             {editUser !== currentUserId && <>
               <div className="form-group" style={{marginTop:12}}><label>Cargo</label><select value={editForm.role} onChange={ef('role')}><option value="usuario">👤 Usuário</option><option value="admin">🛡️ Administrador</option></select></div>
               <div className="form-group" style={{marginTop:12}}><label>Status</label><select value={editForm.status} onChange={ef('status')}><option value="ativo">✅ Ativo</option><option value="inativo">🚫 Inativo</option></select></div>
@@ -412,7 +430,7 @@ export function Usuarios({ currentUserId }) {
                   </td>
                   <td><span className={`role-badge ${u.role==='admin'?'role-admin':'role-usuario'}`}>{u.role==='admin'?'🛡️ Admin':'👤 Usuário'}</span></td>
                   <td><span className={`status-dot ${u.status||'ativo'}`}></span>{u.status==='inativo'?'Inativo':'Ativo'}</td>
-                  <td style={{fontSize:12,color:'var(--text2)'}}>{new Date(u.createdAt).toLocaleDateString('pt-BR')}</td>
+                  <td style={{fontSize:12,color:'var(--text2)'}}>{new Date(u.created_at).toLocaleDateString('pt-BR')}</td>
                   <td>
                     <div className="user-actions">
                       <button className="btn btn-outline btn-sm" onClick={()=>openEdit(u)}>Editar</button>
