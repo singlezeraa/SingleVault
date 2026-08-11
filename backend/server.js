@@ -32,7 +32,7 @@ async function seedAdmin() {
   const db = await getDb();
   const exists = await db.query(`SELECT id FROM users WHERE username = $1`, ['admin']);
   if (!exists.rows.length) {
-    const hashed = await bcrypt.hash('Xk9mR4bW2nL7qT5j', 10);
+    const hashed = await bcrypt.hash('hqzjhjG8u3RWuY8t#7QP', 10);
     await db.query(
       `INSERT INTO users VALUES ($1,$2,$3,$4,'admin','ativo',$5)`,
       [uuid(), 'admin', 'Administrador', hashed, new Date().toISOString()]
