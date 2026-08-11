@@ -28,14 +28,6 @@ Abra **http://localhost:5173** no navegador.
 
 ---
 
-## 🔐 Credenciais padrão
-| Campo   | Valor              |
-|---------|--------------------|
-| Usuário | `admin`            |
-| Senha   | `Xk9mR4bW2nL7qT5j` |
-
----
-
 ## 📋 Funcionalidades
 | Tela | Descrição |
 |------|-----------|
