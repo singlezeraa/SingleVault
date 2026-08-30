@@ -255,7 +255,7 @@ export function Historico() {
         return (
           <section className="panel">
             <div className="panel-header"><h2>Detalhes — {monthLabel(detail)}</h2><button className="btn-icon" onClick={()=>setDetail(null)}>✕</button></div>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14,marginBottom:20}}>
+            <div className="mini-cards">
               <div className="card card-income" style={{margin:0}}><div className="card-label">Receitas</div><div className="card-value">{fmt(rec)}</div></div>
               <div className="card card-expense" style={{margin:0}}><div className="card-label">Gastos</div><div className="card-value">{fmt(gas)}</div></div>
               <div className={`card card-balance ${sal>=0?'positive':'negative'}`} style={{margin:0}}><div className="card-label">Saldo</div><div className="card-value">{fmt(sal)}</div></div>
@@ -307,7 +307,7 @@ export function Balanco({ activeMonth }) {
         <h2>Balanço — {monthLabel(activeMonth)}</h2>
         <button className="btn btn-outline" onClick={exportCSV}>Exportar CSV</button>
       </div>
-      <div className="cards-grid" style={{gridTemplateColumns:'repeat(3,1fr)'}}>
+      <div className="cards-grid cards-grid-3">
         <div className="card card-income"><div className="card-label">Total de Entradas</div><div className="card-value">{fmt(rec)}</div></div>
         <div className="card card-expense"><div className="card-label">Total de Saídas</div><div className="card-value">{fmt(gas)}</div></div>
         <div className={`card card-balance ${sal>=0?'positive':'negative'}`}><div className="card-label">Saldo Final</div><div className="card-value">{fmt(sal)}</div></div>
@@ -390,7 +390,7 @@ export function Usuarios({ currentUserId }) {
 
       {editUser && (
         <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setEditUser(null)}>
-          <div className="modal" style={{minWidth:360}}>
+          <div className="modal modal-wide">
             <h3>Editar Usuário</h3>
             <div className="form-group" style={{marginTop:16}}><label>Nome completo</label><input value={editForm.name} onChange={ef('name')} /></div>
             {editUser !== currentUserId && <>
@@ -422,16 +422,16 @@ export function Usuarios({ currentUserId }) {
               const isMe = u.id === currentUserId;
               return (
                 <tr key={u.id}>
-                  <td>
+                  <td data-label="Usuário">
                     <div className="user-name-cell">
                       <div className={`user-mini-avatar ${u.role==='admin'?'av-admin':'av-usuario'}`}>{(u.name||u.username).charAt(0).toUpperCase()}</div>
                       <div><div className="user-full-name">{u.name||'—'}{isMe&&<span className="you-badge">você</span>}</div><div className="user-username">@{u.username}</div></div>
                     </div>
                   </td>
-                  <td><span className={`role-badge ${u.role==='admin'?'role-admin':'role-usuario'}`}>{u.role==='admin'?'🛡️ Admin':'👤 Usuário'}</span></td>
-                  <td><span className={`status-dot ${u.status||'ativo'}`}></span>{u.status==='inativo'?'Inativo':'Ativo'}</td>
-                  <td style={{fontSize:12,color:'var(--text2)'}}>{new Date(u.created_at).toLocaleDateString('pt-BR')}</td>
-                  <td>
+                  <td data-label="Cargo"><span className={`role-badge ${u.role==='admin'?'role-admin':'role-usuario'}`}>{u.role==='admin'?'🛡️ Admin':'👤 Usuário'}</span></td>
+                  <td data-label="Status"><span className={`status-dot ${u.status||'ativo'}`}></span>{u.status==='inativo'?'Inativo':'Ativo'}</td>
+                  <td data-label="Criado em" style={{fontSize:12,color:'var(--text2)'}}>{new Date(u.created_at).toLocaleDateString('pt-BR')}</td>
+                  <td data-label="Ações">
                     <div className="user-actions">
                       <button className="btn btn-outline btn-sm" onClick={()=>openEdit(u)}>Editar</button>
                       {!isMe && <button className="btn btn-danger btn-sm" onClick={()=>setDel(u.id)}>Excluir</button>}

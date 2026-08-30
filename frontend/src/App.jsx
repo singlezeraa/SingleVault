@@ -24,6 +24,7 @@ function AppInner() {
   const [page, setPage] = useState('dashboard');
   const [activeMonth, setActiveMonth] = useState(curMonthKey());
   const [months, setMonths] = useState([curMonthKey()]);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -45,14 +46,39 @@ function AppInner() {
     });
   }, [user, page]);
 
+  // Trava o scroll do body enquanto o menu mobile está aberto
+  useEffect(() => {
+    document.body.style.overflow = menuOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [menuOpen]);
+
+  // Fecha o menu com ESC
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = e => { if (e.key === 'Escape') setMenuOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [menuOpen]);
+
+  // Ao voltar para desktop (ou girar a tela) o drawer deixa de existir:
+  // fecha o estado para nao deixar o scroll do body travado.
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 769px)');
+    const onChange = e => { if (e.matches) setMenuOpen(false); };
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
   const handleMonthChange = async (mk) => {
     setActiveMonth(mk);
+    setMenuOpen(false);
     if (user) await autoApply(user.id, mk).catch(() => {});
   };
 
   const navigate = (p) => {
     if (p === 'usuarios' && !isAdmin()) return;
     setPage(p);
+    setMenuOpen(false);
   };
 
   if (loading) return <div className="auth-screen"><Spinner /></div>;
@@ -85,10 +111,26 @@ function AppInner() {
         activeMonth={activeMonth}
         months={months}
         onMonthChange={handleMonthChange}
+        open={menuOpen}
       />
- <main className="main">
+      <div
+        className={`sidebar-backdrop ${menuOpen ? 'show' : ''}`}
+        onClick={() => setMenuOpen(false)}
+        aria-hidden="true"
+      />
+      <main className="main">
         <header className="topbar">
           <div className="topbar-left">
+            <button
+              className="menu-toggle"
+              onClick={() => setMenuOpen(o => !o)}
+              aria-label={menuOpen ? 'Fechar menu' : 'Abrir menu'}
+              aria-expanded={menuOpen}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+              </svg>
+            </button>
             <h1>{PAGE_NAMES[page] || page}</h1>
             {page === 'dashboard' && <span className="page-sub">{monthLabel(activeMonth)}</span>}
           </div>
