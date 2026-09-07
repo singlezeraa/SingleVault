@@ -44,31 +44,17 @@ export function AuthProvider({ children }) {
   }
 
   const login = async (username, password) => {
-    // Busca o email pelo username
-    const { data: perfil } = await supabase
-      .from('perfis')
-      .select('id')
-      .eq('username', username)
-      .single();
-
-    if (!perfil) throw new Error('Usuário ou senha incorretos.');
-
-    // O Supabase Auth usa email, então usamos username@singlevault.local
+    // O Supabase Auth usa email, então derivamos username@singlevault.local.
+    // Não consultamos "perfis" antes de autenticar: com RLS ativo o cliente
+    // anônimo não enxerga nenhuma linha, então a checagem falharia sempre.
     const email = `${username}@singlevault.local`;
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw new Error('Usuário ou senha incorretos.');
   };
 
   const register = async (username, name, password) => {
-    // Verifica se o username já existe
-    const { data: existe } = await supabase
-      .from('perfis')
-      .select('id')
-      .eq('username', username)
-      .maybeSingle();
-
-    if (existe) throw new Error('Este usuário já existe.');
-
+    // Sem pré-checagem em "perfis" (bloqueada pelo RLS): a unicidade do
+    // username já é garantida pelo Auth, porque o email deriva dele.
     const email = `${username}@singlevault.local`;
     const { error } = await supabase.auth.signUp({
       email,
@@ -76,7 +62,12 @@ export function AuthProvider({ children }) {
       options: { data: { username, name } }
     });
 
-    if (error) throw new Error(error.message);
+    if (error) {
+      if (/already registered|already exists|User already/i.test(error.message)) {
+        throw new Error('Este usuário já existe.');
+      }
+      throw new Error(error.message);
+    }
   };
 
   const logout = async () => {

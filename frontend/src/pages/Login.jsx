@@ -14,7 +14,7 @@ export default function Login({ onNavigateToRegister }) {
     try {
       await login(form.username, form.password);
     } catch (err) {
-      setError(err.response?.data?.error || 'Erro ao fazer login.');
+      setError(err.message || 'Erro ao fazer login.');
     } finally {
       setLoading(false);
     }

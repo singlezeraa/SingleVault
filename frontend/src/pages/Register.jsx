@@ -17,7 +17,7 @@ export default function Register({ onNavigateToLogin }) {
     try {
       await register(form.username, form.name, form.password);
     } catch (err) {
-      setError(err.response?.data?.error || 'Erro ao criar conta.');
+      setError(err.message || 'Erro ao criar conta.');
     } finally {
       setLoading(false);
     }
