@@ -7,16 +7,21 @@ export const curMonthKey = () => { const d = new Date(); return monthKey(d.getFu
 export const addMonths = (key, n) => { let [y, m] = key.split('-').map(Number); m += n; while(m > 12){ m -= 12; y++; } return monthKey(y, m); };
 
 export const CATS = {
-  alimentacao: { emoji: '🍔', label: 'Alimentação', color: '#ff8c42' },
-  moradia:     { emoji: '🏠', label: 'Moradia',     color: '#6c8fff' },
-  transporte:  { emoji: '🚗', label: 'Transporte',  color: '#ffb547' },
-  saude:       { emoji: '❤️', label: 'Saúde',        color: '#ff5c6c' },
-  educacao:    { emoji: '📚', label: 'Educação',     color: '#3ecf8e' },
-  lazer:       { emoji: '🎮', label: 'Lazer',        color: '#a78bfa' },
-  vestuario:   { emoji: '👕', label: 'Vestuário',    color: '#f472b6' },
-  tecnologia:  { emoji: '💻', label: 'Tecnologia',   color: '#38bdf8' },
-  servicos:    { emoji: '🔧', label: 'Serviços',     color: '#94a3b8' },
-  outros:      { emoji: '📦', label: 'Outros',       color: '#64748b' },
+  alimentacao: { emoji: '🍔', label: 'Alimentação',        color: '#ff8c42' },
+  moradia:     { emoji: '🏠', label: 'Moradia',            color: '#6c8fff' },
+  transporte:  { emoji: '🚗', label: 'Transporte',         color: '#ffb547' },
+  saude:       { emoji: '❤️', label: 'Saúde',              color: '#ff5c6c' },
+  educacao:    { emoji: '📚', label: 'Educação',           color: '#3ecf8e' },
+  lazer:       { emoji: '🎮', label: 'Lazer',              color: '#a78bfa' },
+  vestuario:   { emoji: '👕', label: 'Vestuário',          color: '#f472b6' },
+  tecnologia:  { emoji: '💻', label: 'Tecnologia',         color: '#38bdf8' },
+  servicos:    { emoji: '🔧', label: 'Serviços',           color: '#94a3b8' },
+  cartao:      { emoji: '💳', label: 'Cartão de Crédito',  color: '#d946ef' },
+  impostos:    { emoji: '🧾', label: 'Impostos e Taxas',   color: '#b45309' },
+  celular:     { emoji: '📱', label: 'Fatura Celular',     color: '#14b8a6' },
+  seguro:      { emoji: '🛡️', label: 'Seguro do Carro',    color: '#84cc16' },
+  esporadicos: { emoji: '🎲', label: 'Gastos Esporádicos', color: '#b08968' },
+  outros:      { emoji: '📦', label: 'Outros',             color: '#64748b' },
 };
 
 export const REC_TYPES = { salario: '💼', freelance: '🧑‍💻', investimento: '📈', bonus: '🎁', outro: '💰' };
