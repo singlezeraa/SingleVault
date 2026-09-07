@@ -51,6 +51,19 @@ export async function addGasto(userId, g) {
   return data;
 }
 
+export async function updateGasto(id, g) {
+  const { data: atual } = await supabase.from('gastos').select('fixo_id, parcelado_id').eq('id', id).single();
+  if (atual?.fixo_id || atual?.parcelado_id) {
+    throw new Error('Gastos automáticos não podem ser editados diretamente.');
+  }
+  const { data } = await supabase.from('gastos').update({
+    descricao: g.descricao, valor: g.valor, data: g.data,
+    categoria: g.categoria, tipo: g.tipo, pagamento: g.pagamento,
+    obs: g.obs || '', month_key: g.data.substring(0, 7)
+  }).eq('id', id).select().single();
+  return data;
+}
+
 export async function deleteGasto(id) {
   const { data: gasto } = await supabase.from('gastos').select('fixo_id, parcelado_id').eq('id', id).single();
   if (gasto?.fixo_id || gasto?.parcelado_id) {
